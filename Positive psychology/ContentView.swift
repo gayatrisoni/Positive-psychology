@@ -1,8 +1,8 @@
 //
 //  ContentView.swift
-//  Positive psychology
+//  Positive Psycology
 //
-//  Created by Gayatri Soni on 2/23/24.
+//  Created by Gayatri Soni on 2/20/24.
 //
 
 import SwiftUI
@@ -21,9 +21,9 @@ struct ContentView: View {
             List {
                 ForEach(items) { item in
                     NavigationLink {
-                        Text("Item at \(item.timestamp!, formatter: itemFormatter)")
+                        Text("Meditation for \(item.duration) minutes on  \(item.timestamp!, formatter: itemFormatter)")
                     } label: {
-                        Text(item.timestamp!, formatter: itemFormatter)
+                        Text("Meditation for \(item.duration) minutes on \(item.timestamp!, formatter: itemFormatter)")
                     }
                 }
                 .onDelete(perform: deleteItems)
@@ -33,29 +33,24 @@ struct ContentView: View {
                     EditButton()
                 }
                 ToolbarItem {
-                    Button(action: addItem) {
-                        Label("Add Item", systemImage: "plus")
+                    Button(action: {
+                        addItem()
+                    }) {
+                        Label("Add Meditation", systemImage: "plus")
                     }
                 }
             }
-            Text("Select an item")
+            .sheet(isPresented: $isAddingMeditation) {
+                    AddMeditationView()
+            }
+            .navigationBarTitle("Meditations")
         }
     }
+    
+    @State private var isAddingMeditation = false
 
     private func addItem() {
-        withAnimation {
-            let newItem = Item(context: viewContext)
-            newItem.timestamp = Date()
-
-            do {
-                try viewContext.save()
-            } catch {
-                // Replace this implementation with code to handle the error appropriately.
-                // fatalError() causes the application to generate a crash log and terminate. You should not use this function in a shipping application, although it may be useful during development.
-                let nsError = error as NSError
-                fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
-            }
-        }
+        isAddingMeditation = true
     }
 
     private func deleteItems(offsets: IndexSet) {
@@ -65,8 +60,95 @@ struct ContentView: View {
             do {
                 try viewContext.save()
             } catch {
-                // Replace this implementation with code to handle the error appropriately.
-                // fatalError() causes the application to generate a crash log and terminate. You should not use this function in a shipping application, although it may be useful during development.
+                let nsError = error as NSError
+                fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
+            }
+        }
+    }
+}
+
+struct AddMeditationView: View {
+    @Environment(\.managedObjectContext) private var viewContext
+    @Environment(\.presentationMode) var presentationMode
+    @State private var duration = 0
+    @State private var isTimerRunning = false
+    @State private var timerValue = 0
+    
+    var formattedTime: String {
+        let minutes = timerValue / 60
+        let seconds = timerValue % 60
+        return String(format: "%02d minutes :%02d seconds", minutes, seconds)
+    }
+
+    var body: some View {
+        VStack {
+            Text("Meditate Now")
+                .font(.title)
+                .padding()
+            
+            if isTimerRunning {
+//                let minutes = timerValue / 60
+//                let seconds = timerValue % 60
+                Text(formattedTime)
+                    .font(.title)
+                    .padding()
+                    .onAppear {
+                        Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { timer in
+                            if timerValue  == duration * 60 {
+                                timer.invalidate()
+                                saveMeditation()
+                            } else {
+                                timerValue += 1
+                            }
+                        }
+                    }
+                Button (action: {
+                    isTimerRunning = false
+                }) {
+                    Text ("Cancel")
+                }
+            } else {
+                Stepper(value: $duration, in: 0...120) {
+                    Text("Duration: \(duration) minutes")
+                }
+                
+                Button (action: {
+                    isTimerRunning = true
+                    timerValue = 0
+                }) {
+                    Text("Start timer")
+                }
+                .padding()
+                
+                Button(action: {
+                    saveMeditation()
+                }) {
+                    Text("Log without timer")
+                }
+                .padding()
+                
+                Button (action: {
+                    presentationMode.wrappedValue.dismiss()
+                }) {
+                    Text ("Cancel")
+                }
+            }
+        }
+        .padding()
+        
+        
+    }
+
+    private func saveMeditation() {
+        withAnimation {
+            let newMeditation = Item(context: viewContext)
+            newMeditation.timestamp = Date()
+            newMeditation.duration = Int16(duration)
+
+            do {
+                try viewContext.save()
+                presentationMode.wrappedValue.dismiss()
+            } catch {
                 let nsError = error as NSError
                 fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
             }
